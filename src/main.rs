@@ -2,7 +2,7 @@ mod db;
 mod models;
 
 use axum::{
-    routing::{get, post},
+    routing::{get, post, delete},
     Router, Json,
     extract::State,
     response::IntoResponse,
@@ -14,7 +14,7 @@ use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use std::{net::SocketAddr, sync::Arc};
 use crate::models::user::User;
-use crate::db::users::create_user;
+use crate::db::users::{create_user, delete_user};
 
 #[tokio::main]
 async fn main() {
@@ -22,8 +22,6 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     tracing::info!("Starting Patient Management System");
-
-    let api_doc = ApiDoc::openapi();
 
     // Load .env file
     dotenvy::dotenv().ok();
@@ -58,7 +56,8 @@ async fn main() {
     let app = Router::new()
         .route("/db-check", get(db_check))
         .route("/users", post(add_user_handler))
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", api_doc))
+        .route("/users", delete(delete_user_handler))
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .with_state(app_state);
 
     // Listen on localhost:3000
@@ -93,6 +92,11 @@ struct CreateUserRequest {
     role: Option<String>,
 }
 
+#[derive(Deserialize, ToSchema)]
+struct DeleteUserRequest {
+    username: String,
+}
+
 #[utoipa::path(
     post,
     path = "/users",
@@ -122,11 +126,35 @@ async fn add_user_handler(
     }
 }
 
+#[utoipa::path(
+    delete,
+    path = "/users",
+    request_body = DeleteUserRequest,
+    responses(
+        (status = 200, description = "User deleted"),
+        (status = 404, description = "User not found"),
+        (status = 500, description = "Database error")
+    )
+)]
+async fn delete_user_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<DeleteUserRequest>,
+) -> impl IntoResponse {
+    match delete_user(&state.pool, &payload.username).await {
+        Ok(_) =>  (StatusCode::OK, "User deleted").into_response(),
+        Err(sqlx::Error::RowNotFound) => (StatusCode::NOT_FOUND, "User not found").into_response(),
+        Err(e) => {
+            tracing::error!("Failed to delete user: {:?}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, format!("DB error: {}", e)).into_response()
+        }
+    }
+}
+
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        add_user_handler,
+        add_user_handler,delete_user_handler
     ),
     components(
         schemas(User, CreateUserRequest)
