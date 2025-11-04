@@ -1,20 +1,23 @@
 mod db;
 mod models;
+mod handlers;
+mod state;
+mod api_doc;
 
 use axum::{
     routing::{get, post, delete},
-    Router, Json,
+    Router,
     extract::State,
-    response::IntoResponse,
-    http::StatusCode
 };
-use utoipa::{ToSchema, OpenApi};
+
+use utoipa::{OpenApi};
 use utoipa_swagger_ui::SwaggerUi;
-use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use std::{net::SocketAddr, sync::Arc};
-use crate::models::user::User;
-use crate::db::users::{create_user, delete_user};
+use crate::handlers::{add_user_handler,delete_user_handler};
+use crate::state::AppState; 
+use crate::api_doc::ApiDoc;
+
 
 #[tokio::main]
 async fn main() {
@@ -57,7 +60,7 @@ async fn main() {
         .route("/db-check", get(db_check))
         .route("/users", post(add_user_handler))
         .route("/users", delete(delete_user_handler))
-        .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
+        .merge(SwaggerUi::new("/api-doc").url("/api-doc/openapi.json", ApiDoc::openapi()))
         .with_state(app_state);
 
     // Listen on localhost:3000
@@ -66,11 +69,6 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
-}
-
-// Shared application state
-struct AppState {
-    pool: sqlx::PgPool,
 }
 
 // Database check endpoint
@@ -84,83 +82,3 @@ async fn db_check(State(state): State<Arc<AppState>>) -> String {
     }
 }
 
-#[derive(Deserialize, ToSchema)]
-struct CreateUserRequest {
-    username: String, 
-    first_name: Option<String>, 
-    last_name: Option<String>,
-    role: Option<String>,
-}
-
-#[derive(Deserialize, ToSchema)]
-struct DeleteUserRequest {
-    username: String,
-}
-
-#[utoipa::path(
-    post,
-    path = "/users",
-    request_body = CreateUserRequest,
-    responses(
-        (status = 201, description = "User created"),
-        (status = 500, description = "Database error")
-    )
-)]
-async fn add_user_handler(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<CreateUserRequest>,
-) -> impl IntoResponse {
-    let user = User { 
-        username: payload.username,
-        first_name: payload.first_name.unwrap_or_default(),
-        last_name: payload.last_name.unwrap_or_default(),
-        role: payload.role.unwrap_or_else(|| "user".to_string()),
-    };
-
-    match create_user(&state.pool, user).await {
-        Ok(_) => (StatusCode::CREATED, "User created").into_response(), 
-        Err(e) => {
-            tracing::error!("Failed to create user: {:?}",e );
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("DB error: {}", e)).into_response()
-        }
-    }
-}
-
-#[utoipa::path(
-    delete,
-    path = "/users",
-    request_body = DeleteUserRequest,
-    responses(
-        (status = 200, description = "User deleted"),
-        (status = 404, description = "User not found"),
-        (status = 500, description = "Database error")
-    )
-)]
-async fn delete_user_handler(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<DeleteUserRequest>,
-) -> impl IntoResponse {
-    match delete_user(&state.pool, &payload.username).await {
-        Ok(_) =>  (StatusCode::OK, "User deleted").into_response(),
-        Err(sqlx::Error::RowNotFound) => (StatusCode::NOT_FOUND, "User not found").into_response(),
-        Err(e) => {
-            tracing::error!("Failed to delete user: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("DB error: {}", e)).into_response()
-        }
-    }
-}
-
-
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        add_user_handler,delete_user_handler
-    ),
-    components(
-        schemas(User, CreateUserRequest)
-    ),
-    tags (
-        (name = "users", description = "User management endpoints")
-    )
-)]
-struct ApiDoc;
