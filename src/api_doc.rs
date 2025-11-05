@@ -1,6 +1,6 @@
-use utoipa::{OpenApi};
 use crate::handlers::user_handlers::*;
 use crate::models::user::User;
+use utoipa::OpenApi;
 
 #[derive(OpenApi)]
 #[openapi(

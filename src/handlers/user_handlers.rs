@@ -1,11 +1,10 @@
 use crate::db::users::{create_user, delete_user};
 use crate::models::user::User;
-use crate::state::AppState; 
+use crate::state::AppState;
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde::Deserialize;
 use std::sync::Arc;
-use utoipa::{ToSchema};
-
+use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
 pub struct CreateUserRequest {
@@ -33,7 +32,7 @@ pub async fn add_user_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreateUserRequest>,
 ) -> impl IntoResponse {
-    let user = User { 
+    let user = User {
         username: payload.username,
         first_name: payload.first_name.unwrap_or_default(),
         last_name: payload.last_name.unwrap_or_default(),
@@ -42,12 +41,16 @@ pub async fn add_user_handler(
 
     match create_user(&state.pool, &user).await {
         Ok(_) => {
-            tracing::info!("created user {}", user.username );
+            tracing::info!("created user {}", user.username);
             (StatusCode::CREATED, "User created").into_response()
         }
         Err(e) => {
-            tracing::error!("Failed to create user: {:?}",e );
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("DB error: {}", e)).into_response()
+            tracing::error!("Failed to create user: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("DB error: {}", e),
+            )
+                .into_response()
         }
     }
 }
@@ -67,11 +70,15 @@ pub async fn delete_user_handler(
     Json(payload): Json<DeleteUserRequest>,
 ) -> impl IntoResponse {
     match delete_user(&state.pool, &payload.username).await {
-        Ok(_) =>  (StatusCode::OK, "User deleted").into_response(),
+        Ok(_) => (StatusCode::OK, "User deleted").into_response(),
         Err(sqlx::Error::RowNotFound) => (StatusCode::NOT_FOUND, "User not found").into_response(),
         Err(e) => {
             tracing::error!("Failed to delete user: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("DB error: {}", e)).into_response()
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("DB error: {}", e),
+            )
+                .into_response()
         }
     }
 }

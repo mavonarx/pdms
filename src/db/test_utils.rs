@@ -4,11 +4,19 @@ use sqlx::{PgPool, Postgres, Transaction};
 #[cfg(test)]
 pub async fn setup_test_db() -> PgPool {
     dotenvy::from_filename(".env.test").expect(".env.test file not found");
-    let data_base_url = std::env::var("TEST_DATABASE_URL").expect("Test database must be set int .env.test file");
+    let data_base_url =
+        std::env::var("TEST_DATABASE_URL").expect("Test database must be set int .env.test file");
 
-    let pool = sqlx::postgres::PgPoolOptions::new().max_connections(1).connect(&data_base_url).await.expect("Failed to connect to test database");
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&data_base_url)
+        .await
+        .expect("Failed to connect to test database");
 
-    sqlx::migrate!("./migrations").run(&pool).await.expect("Failed to run migrations");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to run migrations");
     pool
 }
 
@@ -22,7 +30,7 @@ pub async fn cleanup_test_db(pool: &PgPool) {
 
 #[cfg(test)]
 pub async fn seed_test_user(pool: &PgPool, username: &str) {
-        sqlx::query!(
+    sqlx::query!(
         r#"
         INSERT INTO users (username, first_name, last_name, role)
         VALUES ($1, 'Test', 'User', 'doctor')

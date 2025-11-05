@@ -25,8 +25,8 @@ where
     E: Executor<'e, Database = Postgres>,
 {
     let result = sqlx::query!("DELETE FROM USERS WHERE username = $1", username)
-    .execute(executor)
-    .await?;
+        .execute(executor)
+        .await?;
 
     if result.rows_affected() == 0 {
         Err(sqlx::Error::RowNotFound)
@@ -38,7 +38,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::test_utils::{setup_test_db};
+    use crate::db::test_utils::setup_test_db;
     use crate::models::user::User;
     use tokio::sync::OnceCell;
 
@@ -47,7 +47,8 @@ mod tests {
         POOL.get_or_init(|| async {
             // setup_test_db() must be an async fn that returns a PgPool
             crate::db::test_utils::setup_test_db().await
-        }).await
+        })
+        .await
     }
 
     async fn get_transaction() -> sqlx::Transaction<'static, Postgres> {
@@ -58,11 +59,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_user(){
+    async fn test_create_user() {
         let mut tx = get_transaction().await;
 
         let user = User {
-            username : "test_user".to_string(),
+            username: "test_user".to_string(),
             first_name: "Test".to_string(),
             last_name: "User".to_string(),
             role: "TestRole".to_string(),
@@ -72,7 +73,6 @@ mod tests {
         assert!(result.is_ok());
         let _ = tx.rollback().await.unwrap();
     }
-
 
     #[tokio::test]
     async fn test_create_duplicate_user() {
@@ -86,7 +86,9 @@ mod tests {
         };
 
         // Create first user
-        create_user(&mut *tx, &user).await.expect("Failed to create first user");
+        create_user(&mut *tx, &user)
+            .await
+            .expect("Failed to create first user");
 
         // Try to create duplicate (should fail due to unique constraint)
         let result = create_user(&mut *tx, &user).await;
@@ -106,11 +108,17 @@ mod tests {
         };
 
         // Create user
-        create_user(&mut *tx, &user).await.expect("Failed to create user");
+        create_user(&mut *tx, &user)
+            .await
+            .expect("Failed to create user");
 
         // Delete user
         let result = delete_user(&mut *tx, &user.username).await;
-        assert!(result.is_ok(), "The result was not ok it was: {}",result.err().unwrap());
+        assert!(
+            result.is_ok(),
+            "The result was not ok it was: {}",
+            result.err().unwrap()
+        );
         let _ = tx.rollback().await.unwrap();
     }
 
@@ -120,9 +128,9 @@ mod tests {
 
         let result = delete_user(&mut *tx, "nonexistent_user").await;
         assert!(result.is_err());
-        
+
         match result {
-            Err(sqlx::Error::RowNotFound) => {},
+            Err(sqlx::Error::RowNotFound) => {}
             _ => panic!("Expected RowNotFound error"),
         }
         let _ = tx.rollback().await.unwrap();

@@ -1,23 +1,22 @@
-mod db;
-mod models;
-mod handlers;
-mod state;
 mod api_doc;
+mod db;
+mod handlers;
+mod models;
+mod state;
 
 use axum::{
-    routing::{get, post, delete},
     Router,
     extract::State,
+    routing::{delete, get, post},
 };
 
-use utoipa::{OpenApi};
-use utoipa_swagger_ui::SwaggerUi;
+use crate::api_doc::ApiDoc;
+use crate::handlers::{add_user_handler, delete_user_handler};
+use crate::state::AppState;
 use sqlx::postgres::PgPoolOptions;
 use std::{net::SocketAddr, sync::Arc};
-use crate::handlers::{add_user_handler,delete_user_handler};
-use crate::state::AppState; 
-use crate::api_doc::ApiDoc;
-
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 #[tokio::main]
 async fn main() {
@@ -30,8 +29,8 @@ async fn main() {
     dotenvy::dotenv().ok();
 
     // Get database URL from environment
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set in .env file");
+    let database_url =
+        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file");
 
     // Create database connection pool
     tracing::info!("Connecting to database...");
@@ -49,7 +48,7 @@ async fn main() {
         .fetch_one(&pool)
         .await
         .expect("Failed to execute test query");
-    
+
     tracing::info!("Database test query successful: {}", row.0);
 
     // Wrap pool in Arc for sharing across handlers
@@ -73,12 +72,8 @@ async fn main() {
 
 // Database check endpoint
 async fn db_check(State(state): State<Arc<AppState>>) -> String {
-    match sqlx::query("SELECT 1")
-        .fetch_one(&state.pool)
-        .await
-    {
+    match sqlx::query("SELECT 1").fetch_one(&state.pool).await {
         Ok(_) => "Database connection OK".to_string(),
         Err(e) => format!("Database error: {}", e),
     }
 }
-
