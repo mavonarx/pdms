@@ -25,3 +25,6 @@ serde = "1"
 # API OpenApi Doc
 utoipa = "5"
 utoipa-swagger-ui = { version = "9", features = ["axum"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
