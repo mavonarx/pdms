@@ -82,3 +82,14 @@ pub async fn delete_user_handler(
         }
     }
 }
+
+pub async fn get_users_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<User>>, String> {
+    let users = sqlx::query_as::<_, User>("SELECT id, username, first_name, last_name, role FROM users")
+        .fetch_all(&state.pool)
+        .await
+        .map_err(|e| format!("Database error: {}", e))?;
+
+    Ok(Json(users))
+}

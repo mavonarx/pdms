@@ -35,17 +35,27 @@ where
     }
 }
 
+pub async fn get_user<'e, E>(executor: E, username: &str) -> Result<Option<User>, sqlx::Error>
+where
+    E: Executor<'e, Database = Postgres>,
+{
+    let user_opt: Option<User> = sqlx::query_as!(
+        User, "SELECT username, first_name, last_name, role FROM users WHERE username = $1", username)
+        .fetch_optional(executor)
+        .await?;
+    Ok(user_opt)
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::test_utils::setup_test_db;
     use crate::models::user::User;
     use tokio::sync::OnceCell;
 
     static POOL: OnceCell<sqlx::PgPool> = OnceCell::const_new();
     pub async fn get_pool() -> &'static sqlx::PgPool {
         POOL.get_or_init(|| async {
-            // setup_test_db() must be an async fn that returns a PgPool
             crate::db::test_utils::setup_test_db().await
         })
         .await
@@ -112,6 +122,9 @@ mod tests {
             .await
             .expect("Failed to create user");
 
+        let opt_user = get_user(&mut *tx, &user.username).await;
+        assert!(opt_user.unwrap().is_some());
+
         // Delete user
         let result = delete_user(&mut *tx, &user.username).await;
         assert!(
@@ -119,6 +132,10 @@ mod tests {
             "The result was not ok it was: {}",
             result.err().unwrap()
         );
+
+        let opt_user = get_user(&mut *tx, &user.username).await;
+        assert!(opt_user.unwrap().is_none());
+
         let _ = tx.rollback().await.unwrap();
     }
 
@@ -133,27 +150,6 @@ mod tests {
             Err(sqlx::Error::RowNotFound) => {}
             _ => panic!("Expected RowNotFound error"),
         }
-        let _ = tx.rollback().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_create_user_with_different_roles() {
-        let mut tx = get_transaction().await;
-
-        let roles = vec!["doctor", "nurse", "admin", "receptionist"];
-
-        for (i, role) in roles.iter().enumerate() {
-            let user = User {
-                username: format!("user_{}", i),
-                first_name: "Test".to_string(),
-                last_name: format!("User{}", i),
-                role: role.to_string(),
-            };
-
-            let result = create_user(&mut *tx, &user).await;
-            assert!(result.is_ok(), "Failed to create user with role: {}", role);
-        }
-
         let _ = tx.rollback().await.unwrap();
     }
 

@@ -11,7 +11,7 @@ use axum::{
 };
 
 use crate::api_doc::ApiDoc;
-use crate::handlers::{add_user_handler, delete_user_handler};
+use crate::handlers::{add_user_handler, delete_user_handler, get_users_handler};
 use crate::state::AppState;
 use sqlx::postgres::PgPoolOptions;
 use std::{net::SocketAddr, sync::Arc};
@@ -57,6 +57,7 @@ async fn main() {
     // Create a simple router
     let app = Router::new()
         .route("/db-check", get(db_check))
+        .route("/users", get(get_users_handler))
         .route("/users", post(add_user_handler))
         .route("/users", delete(delete_user_handler))
         .merge(SwaggerUi::new("/api-doc").url("/api-doc/openapi.json", ApiDoc::openapi()))

@@ -1,5 +1,5 @@
 #[cfg(test)]
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::{PgPool};
 
 #[cfg(test)]
 pub async fn setup_test_db() -> PgPool {
@@ -26,19 +26,4 @@ pub async fn cleanup_test_db(pool: &PgPool) {
         .execute(pool)
         .await
         .expect("Failed to clean up test database");
-}
-
-#[cfg(test)]
-pub async fn seed_test_user(pool: &PgPool, username: &str) {
-    sqlx::query!(
-        r#"
-        INSERT INTO users (username, first_name, last_name, role)
-        VALUES ($1, 'Test', 'User', 'doctor')
-        ON CONFLICT (username) DO NOTHING
-        "#,
-        username
-    )
-    .execute(pool)
-    .await
-    .expect("Failed to seed test user");
 }
