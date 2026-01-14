@@ -78,3 +78,4 @@ async fn db_check(State(state): State<Arc<AppState>>) -> String {
         Err(e) => format!("Database error: {}", e),
     }
 }
+

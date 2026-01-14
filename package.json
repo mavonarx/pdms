@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "ch.fhir.ig.ch-core": "^6.0.0-ballot"
+  }
+}
